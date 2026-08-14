@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+/// Default tile source.
+///
+/// OSM raster tiles are used by default because they are free and unmetered,
+/// which keeps map-tile usage (and any Mapbox costs) to a minimum.
+///
+/// To opt into Mapbox raster tiles, build/run with:
+///   --dart-define=TILE_URL_TEMPLATE=https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=YOUR_TOKEN
+const String kDefaultTileUrlTemplate = String.fromEnvironment(
+  'TILE_URL_TEMPLATE',
+  defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+);
+
 /// Returns a fill colour for a territory hex based on its owner and HP.
 ///
 /// [ownedBy] is expected to be 'neon', 'umbra', or null (neutral).
@@ -36,7 +48,7 @@ class TerrarunMap extends StatefulWidget {
     this.polygons = const [],
     this.polylines = const [],
     this.markers = const [],
-    this.tileUrlTemplate = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    this.tileUrlTemplate = kDefaultTileUrlTemplate,
     this.showAttribution = true,
   });
 

@@ -188,6 +188,12 @@ func mapboxTileProxy(cfg *config.Config) http.HandlerFunc {
 		q.Set("access_token", cfg.MapboxToken)
 		r.URL.RawQuery = q.Encode()
 	}
+	// Mapbox tiles are immutable for a given z/x/y coordinate. Tell clients to
+	// cache them so panning/zooming doesn't refetch (and burn Mapbox quota).
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Set("Cache-Control", "public, max-age=86400, immutable")
+		return nil
+	}
 	return proxy.ServeHTTP
 }
 

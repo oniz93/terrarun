@@ -96,14 +96,23 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 			req.GPSPoints[i].RunID = runID
 		}
 
-		captureResult, err := s.territorySvc.CaptureRun(ctx, run, req.GPSPoints)
+		// Resolve the runner's faction from the users table; the run row itself
+		// has no faction column, so the capture engine must be told explicitly.
+		runner, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
-			log.Warn().Err(err).Str("run_id", runID.String()).Msg("territory capture failed")
-		} else {
-			territoryPoints = captureResult.TerritoryPoints
-			hexesCaptured = captureResult.HexesCaptured
-			hexesStolen = captureResult.HexesStolen
-			captureMode = &captureResult.Mode
+			return nil, fmt.Errorf("get runner: %w", err)
+		}
+
+		if runner.Faction != nil {
+			captureResult, err := s.territorySvc.CaptureRun(ctx, run, *runner.Faction, req.GPSPoints)
+			if err != nil {
+				log.Warn().Err(err).Str("run_id", runID.String()).Msg("territory capture failed")
+			} else {
+				territoryPoints = captureResult.TerritoryPoints
+				hexesCaptured = captureResult.HexesCaptured
+				hexesStolen = captureResult.HexesStolen
+				captureMode = &captureResult.Mode
+			}
 		}
 	}
 

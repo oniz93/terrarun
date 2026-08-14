@@ -28,14 +28,19 @@ func (c *Calculator) RunnerPoints(distanceM, elevationGainM float64, territoryPo
 	return int(math.Round(pts))
 }
 
+// XPForLevel returns the cumulative XP required to reach the given level.
+// Levels are 1-based: level 1 requires 0 XP, level 2 requires 100 XP, etc.
 func XPForLevel(level int) int64 {
-	return int64(100 * math.Pow(float64(level), 1.5))
+	if level <= 1 {
+		return 0
+	}
+	return int64(100 * math.Pow(float64(level-1), 1.5))
 }
 
 func LevelFromXP(totalXP int64) int {
 	level := 1
-	for totalXP >= XPForLevel(level) {
+	for totalXP >= XPForLevel(level+1) {
 		level++
 	}
-	return level - 1
+	return level
 }

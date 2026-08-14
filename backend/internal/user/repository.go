@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/terrarun/backend/internal/domain"
+	"github.com/terrarun/backend/internal/points"
 )
 
 type Repository interface {
@@ -108,8 +109,17 @@ func (r *PostgresRepo) Export(ctx context.Context, id uuid.UUID) (*domain.User, 
 }
 
 func (r *PostgresRepo) IncrementXP(ctx context.Context, id uuid.UUID, xp int64) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE users SET account_xp = account_xp + $2 WHERE id = $1`, id, xp)
+	var newXP int64
+	err := r.pool.QueryRow(ctx,
+		`UPDATE users SET account_xp = account_xp + $2, updated_at = NOW()
+		 WHERE id = $1 RETURNING account_xp`, id, xp).Scan(&newXP)
+	if err != nil {
+		return err
+	}
+
+	newLevel := points.LevelFromXP(newXP)
+	_, err = r.pool.Exec(ctx,
+		`UPDATE users SET account_level = $2 WHERE id = $1`, id, newLevel)
 	return err
 }
 

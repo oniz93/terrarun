@@ -94,6 +94,9 @@ func main() {
 	botSched := bot.NewScheduler(botSvc, 15*time.Minute)
 	go botSched.Start(context.Background())
 
+	decaySched := territory.NewDecayScheduler(territorySvc, 10000, time.Hour)
+	go decaySched.Start(context.Background())
+
 	notifSvc := notification.NewService(db, rdb, wsHub)
 
 	seasonRepo := season.NewPostgresRepo(db)

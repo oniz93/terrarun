@@ -130,7 +130,9 @@ func (r *PostgresRepo) BatchDecayHP(ctx context.Context, limit int) (int, error)
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE hexes SET hp = hp - 1, last_decayed_at = NOW()
 		 WHERE h3_index IN (
-		     SELECT h3_index FROM hexes WHERE owned_by IS NOT NULL AND hp > 1
+		     SELECT h3_index FROM hexes
+		     WHERE owned_by IS NOT NULL AND hp > 1
+		       AND last_decayed_at < date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
 		     LIMIT $1
 		 )`, limit)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/terrarun/backend/internal/config"
 	"github.com/terrarun/backend/internal/domain"
+	"github.com/terrarun/backend/internal/leaderboard"
 	"github.com/terrarun/backend/internal/points"
 	"github.com/terrarun/backend/internal/territory"
 	"github.com/terrarun/backend/internal/user"
@@ -23,28 +24,30 @@ var (
 )
 
 type Service struct {
-	repo         Repository
-	territorySvc *territory.Service
-	cheatDet     *CheatDetector
-	statsCalc    *StatsCalculator
-	ptsCalc      *points.Calculator
-	wsHub        *websocket.Hub
-	userRepo     user.Repository
-	cfg          *config.Config
+	repo           Repository
+	territorySvc   *territory.Service
+	cheatDet       *CheatDetector
+	statsCalc      *StatsCalculator
+	ptsCalc        *points.Calculator
+	wsHub          *websocket.Hub
+	userRepo       user.Repository
+	leaderboardSvc *leaderboard.Service
+	cfg            *config.Config
 }
 
 func NewService(repo Repository, territorySvc *territory.Service, cheatDet *CheatDetector,
 	statsCalc *StatsCalculator, ptsCalc *points.Calculator, wsHub *websocket.Hub,
-	userRepo user.Repository, cfg *config.Config) *Service {
+	userRepo user.Repository, leaderboardSvc *leaderboard.Service, cfg *config.Config) *Service {
 	return &Service{
-		repo:         repo,
-		territorySvc: territorySvc,
-		cheatDet:     cheatDet,
-		statsCalc:    statsCalc,
-		ptsCalc:      ptsCalc,
-		wsHub:        wsHub,
-		userRepo:     userRepo,
-		cfg:          cfg,
+		repo:           repo,
+		territorySvc:   territorySvc,
+		cheatDet:       cheatDet,
+		statsCalc:      statsCalc,
+		ptsCalc:        ptsCalc,
+		wsHub:          wsHub,
+		userRepo:       userRepo,
+		leaderboardSvc: leaderboardSvc,
+		cfg:            cfg,
 	}
 }
 
@@ -83,6 +86,11 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 	}
 	if run.Status != domain.RunStatusActive {
 		return nil, ErrRunNotActive
+	}
+
+	runner, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get runner: %w", err)
 	}
 
 	cheatResult := s.cheatDet.Check(req.GPSPoints, req.DistanceM, float64(req.DurationS))
@@ -145,6 +153,13 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 	if xpGain > 0 {
 		if err := s.userRepo.IncrementXP(ctx, userID, xpGain); err != nil {
 			log.Warn().Err(err).Msg("increment xp failed")
+		}
+	}
+
+	if run.Status == domain.RunStatusCompleted && s.leaderboardSvc != nil && runner.Faction != nil {
+		// The read path defaults to season "current"; keep the same key here.
+		if err := s.leaderboardSvc.UpdateScores(ctx, userID.String(), string(*runner.Faction), "current", int64(runnerPoints), int64(territoryPoints)); err != nil {
+			log.Warn().Err(err).Msg("leaderboard update failed")
 		}
 	}
 

@@ -113,7 +113,7 @@ func (s *Service) GoogleLogin(ctx context.Context, req GoogleLoginRequest) (*Aut
 }
 
 func (s *Service) AppleLogin(ctx context.Context, req AppleLoginRequest) (*AuthResponse, error) {
-	payload, err := verifyAppleIdentityToken(ctx, req.IdentityToken, s.cfg.AppleTeamID, s.cfg.AppleKeyID, s.cfg.ApplePrivateKey)
+	payload, err := verifyAppleIdentityToken(ctx, req.IdentityToken, s.cfg.AppleClientID)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}

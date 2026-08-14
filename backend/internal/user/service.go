@@ -76,8 +76,20 @@ func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, file multi
 	return url, nil
 }
 
-func (s *Service) GetPublic(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
-	return s.repo.GetByID(ctx, userID)
+func (s *Service) GetPublic(ctx context.Context, userID uuid.UUID) (*domain.PublicUser, error) {
+	u, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.PublicUser{
+		ID:           u.ID,
+		DisplayName:  u.DisplayName,
+		Faction:      u.Faction,
+		AvatarURL:    u.AvatarURL,
+		AccountLevel: u.AccountLevel,
+		RunnerTier:   u.RunnerTier,
+		CreatedAt:    u.CreatedAt,
+	}, nil
 }
 
 func (s *Service) MatchContacts(ctx context.Context, hashes []string) (*ContactsMatchResult, error) {

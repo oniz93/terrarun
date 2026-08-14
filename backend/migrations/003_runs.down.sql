@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS gps_points;
+DROP TABLE IF EXISTS runs;

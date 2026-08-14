@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: timescale/timescaledb-ha:pg16
+    environment:
+      POSTGRES_DB: terrarun
+      POSTGRES_USER: terrarun
+      POSTGRES_PASSWORD: terrarun_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U terrarun"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ROOT: /data
+      RUSTFS_ACCESS_KEY: terrarun_dev
+      RUSTFS_SECRET_KEY: terrarun_dev_secret
+    volumes:
+      - rustfs_data:/data
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://terrarun:terrarun_dev@postgres:5432/terrarun?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_ACCESS_KEY: terrarun_dev
+      STORAGE_SECRET_KEY: terrarun_dev_secret
+      JWT_SECRET: dev_jwt_secret_change_in_prod
+      PHONE_HASH_PEPPER: dev_pepper_change_in_prod
+      GOOGLE_CLIENT_ID: ""
+      APPLE_TEAM_ID: ""
+      APPLE_KEY_ID: ""
+      APPLE_PRIVATE_KEY: ""
+      MAPBOX_TOKEN: "${MAPBOX_TOKEN:-}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redis_data:
+  rustfs_data:

@@ -11,10 +11,11 @@ import (
 
 type Repository interface {
 	Create(ctx context.Context, s *domain.Season) error
+	DeactivateAll(ctx context.Context) error
 	GetCurrent(ctx context.Context) (*domain.Season, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Season, error)
 	List(ctx context.Context) ([]domain.Season, error)
-	AddParticipant(ctx context.Context, userID, seasonID uuid.UUID, faction domain.Faction) error
+	AddParticipant(ctx context.Context, userID, seasonID uuid.UUID) error
 	UpdateParticipantScore(ctx context.Context, userID, seasonID uuid.UUID, points int) error
 	GetParticipants(ctx context.Context, seasonID uuid.UUID) ([]domain.SeasonParticipant, error)
 }
@@ -27,20 +28,27 @@ func NewPostgresRepo(pool *pgxpool.Pool) *PostgresRepo {
 	return &PostgresRepo{pool: pool}
 }
 
+const defaultTiersConfig = `{"rookie":0,"runner":1000,"sprinter":5000,"elite":15000,"legend":30000}`
+
 func (r *PostgresRepo) Create(ctx context.Context, s *domain.Season) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO seasons (id, name, starts_at, ends_at, is_active, created_at)
-		 VALUES ($1, $2, $3, $4, $5, NOW())`,
-		s.ID, s.Name, s.StartsAt, s.EndsAt, s.IsActive)
+		`INSERT INTO seasons (id, name, start_date, end_date, tiers_config, is_active, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+		s.ID, s.Name, s.StartDate, s.EndDate, defaultTiersConfig, s.IsActive)
+	return err
+}
+
+func (r *PostgresRepo) DeactivateAll(ctx context.Context) error {
+	_, err := r.pool.Exec(ctx, `UPDATE seasons SET is_active = false WHERE is_active = true`)
 	return err
 }
 
 func (r *PostgresRepo) GetCurrent(ctx context.Context) (*domain.Season, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, name, starts_at, ends_at, is_active, created_at, updated_at
-		 FROM seasons WHERE is_active = true ORDER BY starts_at DESC LIMIT 1`)
+		`SELECT id, name, start_date, end_date, is_active, created_at
+		 FROM seasons WHERE is_active = true ORDER BY start_date DESC LIMIT 1`)
 	var s domain.Season
-	err := row.Scan(&s.ID, &s.Name, &s.StartsAt, &s.EndsAt, &s.IsActive, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.Name, &s.StartDate, &s.EndDate, &s.IsActive, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -49,10 +57,10 @@ func (r *PostgresRepo) GetCurrent(ctx context.Context) (*domain.Season, error) {
 
 func (r *PostgresRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Season, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, name, starts_at, ends_at, is_active, created_at, updated_at
+		`SELECT id, name, start_date, end_date, is_active, created_at
 		 FROM seasons WHERE id = $1`, id)
 	var s domain.Season
-	err := row.Scan(&s.ID, &s.Name, &s.StartsAt, &s.EndsAt, &s.IsActive, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.Name, &s.StartDate, &s.EndDate, &s.IsActive, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +69,8 @@ func (r *PostgresRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Seaso
 
 func (r *PostgresRepo) List(ctx context.Context) ([]domain.Season, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, name, starts_at, ends_at, is_active, created_at, updated_at
-		 FROM seasons ORDER BY starts_at DESC`)
+		`SELECT id, name, start_date, end_date, is_active, created_at
+		 FROM seasons ORDER BY start_date DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +79,7 @@ func (r *PostgresRepo) List(ctx context.Context) ([]domain.Season, error) {
 	var seasons []domain.Season
 	for rows.Next() {
 		var s domain.Season
-		if err := rows.Scan(&s.ID, &s.Name, &s.StartsAt, &s.EndsAt, &s.IsActive, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.StartDate, &s.EndDate, &s.IsActive, &s.CreatedAt); err != nil {
 			return nil, err
 		}
 		seasons = append(seasons, s)
@@ -79,18 +87,18 @@ func (r *PostgresRepo) List(ctx context.Context) ([]domain.Season, error) {
 	return seasons, nil
 }
 
-func (r *PostgresRepo) AddParticipant(ctx context.Context, userID, seasonID uuid.UUID, faction domain.Faction) error {
+func (r *PostgresRepo) AddParticipant(ctx context.Context, userID, seasonID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO season_participants (user_id, season_id, faction, points)
-		 VALUES ($1, $2, $3, 0)
+		`INSERT INTO season_participants (user_id, season_id, runner_points, territory_points, current_tier)
+		 VALUES ($1, $2, 0, 0, 'rookie')
 		 ON CONFLICT (user_id, season_id) DO NOTHING`,
-		userID, seasonID, faction)
+		userID, seasonID)
 	return err
 }
 
 func (r *PostgresRepo) UpdateParticipantScore(ctx context.Context, userID, seasonID uuid.UUID, points int) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE season_participants SET points = points + $1, updated_at = NOW()
+		`UPDATE season_participants SET runner_points = runner_points + $1
 		 WHERE user_id = $2 AND season_id = $3`,
 		points, userID, seasonID)
 	return err
@@ -98,11 +106,11 @@ func (r *PostgresRepo) UpdateParticipantScore(ctx context.Context, userID, seaso
 
 func (r *PostgresRepo) GetParticipants(ctx context.Context, seasonID uuid.UUID) ([]domain.SeasonParticipant, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT sp.user_id, sp.season_id, sp.faction, sp.points, u.display_name
+		`SELECT sp.user_id, sp.season_id, u.faction, sp.runner_points, sp.territory_points, sp.current_tier, u.display_name
 		 FROM season_participants sp
 		 JOIN users u ON u.id = sp.user_id
 		 WHERE sp.season_id = $1
-		 ORDER BY sp.points DESC`, seasonID)
+		 ORDER BY sp.runner_points DESC`, seasonID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +119,7 @@ func (r *PostgresRepo) GetParticipants(ctx context.Context, seasonID uuid.UUID) 
 	var participants []domain.SeasonParticipant
 	for rows.Next() {
 		var p domain.SeasonParticipant
-		if err := rows.Scan(&p.UserID, &p.SeasonID, &p.Faction, &p.Points, &p.DisplayName); err != nil {
+		if err := rows.Scan(&p.UserID, &p.SeasonID, &p.Faction, &p.RunnerPoints, &p.TerritoryPoints, &p.CurrentTier, &p.DisplayName); err != nil {
 			return nil, err
 		}
 		participants = append(participants, p)

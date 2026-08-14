@@ -9,19 +9,20 @@ import (
 type Season struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
-	StartsAt  time.Time `json:"starts_at"`
-	EndsAt    time.Time `json:"ends_at"`
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type SeasonParticipant struct {
-	UserID      uuid.UUID `json:"user_id"`
-	SeasonID    uuid.UUID `json:"season_id"`
-	Faction     Faction   `json:"faction"`
-	Points      int       `json:"points"`
-	DisplayName string    `json:"display_name"`
+	UserID          uuid.UUID `json:"user_id"`
+	SeasonID        uuid.UUID `json:"season_id"`
+	Faction         Faction   `json:"faction"`
+	RunnerPoints    int       `json:"runner_points"`
+	TerritoryPoints int       `json:"territory_points"`
+	CurrentTier     string    `json:"current_tier"`
+	DisplayName     string    `json:"display_name"`
 }
 
 type TiersConfig struct {

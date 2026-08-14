@@ -104,6 +104,15 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 			hexesCaptured = captureResult.HexesCaptured
 			hexesStolen = captureResult.HexesStolen
 			captureMode = &captureResult.Mode
+
+			if len(captureResult.AffectedHexes) > 0 && s.wsHub != nil {
+				s.wsHub.BroadcastTerritoryChange(&websocket.Message{
+					Type: "territory:changed",
+					Payload: map[string]interface{}{
+						"hexes": captureResult.AffectedHexes,
+					},
+				})
+			}
 		}
 	}
 

@@ -43,7 +43,6 @@ dependencies:
   cached_network_image: ^3.3.1
   image_picker: ^1.0.7
   flutter_local_notifications: ^18.0.1
-  mapbox_maps_flutter: ^2.23.1
   h3_flutter_plus: ^1.0.0+v4.2.1
   rxdart: ^0.28.0
   flutter_background_geolocation: ^5.2.0

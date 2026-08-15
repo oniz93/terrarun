@@ -7,7 +7,6 @@ client/build/
 client/.dart_tool/
 client/.packages
 client/.pub/
-client/pubspec.lock
 
 # Docker volumes
 pgdata/

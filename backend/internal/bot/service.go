@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
@@ -107,10 +108,11 @@ func (s *Service) MaintainBotBalance(ctx context.Context) error {
 	}
 
 	spawnFaction := domain.FactionNeon
+	centerLat, centerLng := s.spawnCenter(ctx)
 	for i := 0; i < needed; i++ {
 		avatarSeed := fmt.Sprintf("abot_%s", uuid.New().String()[:8])
-		lat := 51.5074 + (rand.Float64()-0.5)*0.1
-		lng := -0.1278 + (rand.Float64()-0.5)*0.1
+		lat := centerLat + (rand.Float64()-0.5)*0.1
+		lng := centerLng + (rand.Float64()-0.5)*0.1
 
 		bot := &domain.Bot{
 			ID:             uuid.New(),
@@ -171,8 +173,13 @@ func (s *Service) SimulateBotRun(ctx context.Context, bot domain.Bot) error {
 		var currentHP int
 		err = s.db.QueryRow(ctx,
 			`SELECT owned_by, hp FROM hexes WHERE h3_index = $1`, cellInt).Scan(&currentOwner, &currentHP)
-		if err != nil {
+		if err != nil && err != pgx.ErrNoRows {
 			continue
+		}
+		if err == pgx.ErrNoRows {
+			// Neutral hex: treat as unowned with 0 HP.
+			currentOwner = nil
+			currentHP = 0
 		}
 
 		if currentOwner != nil && *currentOwner == factionStr {
@@ -187,10 +194,27 @@ func (s *Service) SimulateBotRun(ctx context.Context, bot domain.Bot) error {
 			cellInt, factionStr, hp)
 		s.db.Exec(ctx,
 			`INSERT INTO territory_changes (h3_index, previous_owner, new_owner, hp_before, hp_after)
-			 VALUES ($1, NULL, $2, 0, 90)`, cellInt, factionStr)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			cellInt, currentOwner, factionStr, currentHP, hp)
 	}
 
 	return s.repo.IncrementRuns(ctx, bot.ID)
+}
+
+// spawnCenter returns the centroid of existing bots' homes, falling back to the
+// Vancouver seeding area so new bots stay inside the seeded game world.
+func (s *Service) spawnCenter(ctx context.Context) (float64, float64) {
+	bots, err := s.repo.ListActive(ctx)
+	if err == nil && len(bots) > 0 {
+		var sumLat, sumLng float64
+		for _, b := range bots {
+			sumLat += b.HomeLat
+			sumLng += b.HomeLng
+		}
+		return sumLat / float64(len(bots)), sumLng / float64(len(bots))
+	}
+	// Vancouver (matches cmd/seed_vancouver_v6).
+	return 49.2253, -123.0050
 }
 
 func (s *Service) GetActiveBots(ctx context.Context) ([]domain.Bot, error) {

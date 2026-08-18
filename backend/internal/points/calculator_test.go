@@ -81,12 +81,13 @@ func TestXPForLevel(t *testing.T) {
 		level int
 		xp    int64
 	}{
-		{1, 100},
-		{2, 282},
-		{3, 519},
-		{4, 800},
-		{5, 1118},
-		{10, 3162},
+		{1, 0},
+		{2, 100},
+		{3, 282},
+		{4, 519},
+		{5, 800},
+		{6, 1118},
+		{11, 3162},
 	}
 	for _, tt := range tests {
 		got := XPForLevel(tt.level)
@@ -101,13 +102,13 @@ func TestLevelFromXP(t *testing.T) {
 		xp    int64
 		level int
 	}{
-		{0, 0},
-		{50, 0},
-		{100, 1},
-		{281, 1},
-		{282, 2},
-		{5000, 13},
-		{100000, 100},
+		{0, 1},
+		{50, 1},
+		{100, 2},
+		{281, 2},
+		{282, 3},
+		{5000, 14},
+		{100000, 101},
 	}
 	for _, tt := range tests {
 		got := LevelFromXP(tt.xp)

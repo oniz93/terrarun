@@ -76,7 +76,10 @@ func main() {
 	wsHub := websocket.NewHub()
 	go wsHub.Run()
 
-	runSvc := run.NewService(runRepo, territorySvc, cheatDetector, statsCalc, pointsCalc, wsHub, userRepo, cfg)
+	leaderboardRepo := leaderboard.NewRedisRepo(rdb)
+	leaderboardSvc := leaderboard.NewService(leaderboardRepo)
+
+	runSvc := run.NewService(runRepo, territorySvc, cheatDetector, statsCalc, pointsCalc, wsHub, userRepo, leaderboardSvc, cfg)
 	runH := run.NewHandler(runSvc)
 
 	territoryH := territory.NewHandler(territorySvc)
@@ -85,8 +88,6 @@ func main() {
 	friendSvc := friend.NewService(friendRepo, userRepo, rdb)
 	friendH := friend.NewHandler(friendSvc)
 
-	leaderboardRepo := leaderboard.NewRedisRepo(rdb)
-	leaderboardSvc := leaderboard.NewService(leaderboardRepo)
 	leaderboardH := leaderboard.NewHandler(leaderboardSvc)
 
 	botRepo := bot.NewPostgresRepo(db)

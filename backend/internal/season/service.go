@@ -24,7 +24,7 @@ func (s *Service) GetCurrentSeason(ctx context.Context) (*domain.Season, error) 
 		return s.getOrCreateCurrent(ctx)
 	}
 
-	if time.Now().After(season.EndsAt) {
+	if time.Now().After(season.EndDate) {
 		return s.getOrCreateCurrent(ctx)
 	}
 
@@ -32,12 +32,18 @@ func (s *Service) GetCurrentSeason(ctx context.Context) (*domain.Season, error) 
 }
 
 func (s *Service) getOrCreateCurrent(ctx context.Context) (*domain.Season, error) {
+	// The seasons table has a UNIQUE(is_active) constraint, so deactivate any
+	// existing active season before creating the next one.
+	if err := s.repo.DeactivateAll(ctx); err != nil {
+		return nil, fmt.Errorf("deactivate seasons: %w", err)
+	}
+
 	season := &domain.Season{
-		ID:       uuid.New(),
-		Name:     fmt.Sprintf("Season %d", time.Now().Month()),
-		StartsAt: time.Now(),
-		EndsAt:   time.Now().Add(30 * 24 * time.Hour),
-		IsActive: true,
+		ID:        uuid.New(),
+		Name:      fmt.Sprintf("Season %d", time.Now().Month()),
+		StartDate: time.Now(),
+		EndDate:   time.Now().Add(30 * 24 * time.Hour),
+		IsActive:  true,
 	}
 
 	if err := s.repo.Create(ctx, season); err != nil {
@@ -60,8 +66,7 @@ func (s *Service) JoinSeason(ctx context.Context, userID uuid.UUID, faction doma
 	if err != nil {
 		return err
 	}
-
-	return s.repo.AddParticipant(ctx, userID, season.ID, faction)
+	return s.repo.AddParticipant(ctx, userID, season.ID)
 }
 
 func (s *Service) GetLeaderboard(ctx context.Context, seasonID uuid.UUID) ([]domain.SeasonParticipant, error) {

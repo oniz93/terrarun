@@ -19,12 +19,7 @@ type CaptureResult struct {
 	AffectedHexes    []domain.Hex
 }
 
-func (s *Service) CaptureRun(ctx context.Context, run *domain.Run, points []domain.GPSPoint) (*CaptureResult, error) {
-	var userFaction domain.Faction
-	if run.Faction() != nil {
-		userFaction = *run.Faction()
-	}
-
+func (s *Service) CaptureRun(ctx context.Context, run *domain.Run, faction domain.Faction, points []domain.GPSPoint) (*CaptureResult, error) {
 	captureMode, geometry, err := s.determineCaptureGeometry(ctx, points)
 	if err != nil {
 		return nil, fmt.Errorf("determine geometry: %w", err)
@@ -67,7 +62,7 @@ func (s *Service) CaptureRun(ctx context.Context, run *domain.Run, points []doma
 			lat, lng, _ := h3util.CellToLatLng(cell)
 			h := domain.Hex{
 				H3Index:       int64(cell),
-				OwnedBy:       &userFaction,
+				OwnedBy:       &faction,
 				HP:            1,
 				CapturedByID:  &run.ID,
 				CapturedAt:    now,
@@ -78,7 +73,7 @@ func (s *Service) CaptureRun(ctx context.Context, run *domain.Run, points []doma
 			if err := s.repo.UpsertHex(ctx, &h); err != nil {
 				return nil, fmt.Errorf("upsert hex: %w", err)
 			}
-			change.NewOwner = &userFaction
+			change.NewOwner = &faction
 			change.HPAfter = 1
 			result.TerritoryPoints += s.cfg.TerritoryBasePoints
 			result.HexesCaptured++
@@ -87,23 +82,23 @@ func (s *Service) CaptureRun(ctx context.Context, run *domain.Run, points []doma
 			lat, lng, _ := h3util.CellToLatLng(cell)
 			hex.Lat = lat
 			hex.Lng = lng
-			trans := ComputeCaptureTransition(hex, userFaction, capCfg)
+			trans := ComputeCaptureTransition(hex, faction, capCfg)
 			change.PreviousOwner = hex.OwnedBy
 			change.HPBefore = hex.HP
 
 			if trans.Flipped {
-				hex.OwnedBy = &userFaction
+				hex.OwnedBy = &faction
 				hex.HP = 1
 				hex.CapturedByID = &run.ID
 				hex.CapturedAt = now
-				change.NewOwner = &userFaction
+				change.NewOwner = &faction
 				change.HPAfter = 1
 				result.HexesStolen++
 			} else {
 				hex.HP = trans.ToHP
 				change.NewOwner = hex.OwnedBy
 				change.HPAfter = trans.ToHP
-				if *hex.OwnedBy == userFaction {
+				if *hex.OwnedBy == faction {
 					result.HexesCaptured++
 				}
 			}

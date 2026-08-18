@@ -56,10 +56,6 @@ type Run struct {
 	CreatedAt          time.Time    `json:"created_at"`
 }
 
-func (r *Run) Faction() *Faction {
-	return nil
-}
-
 type GPSPoint struct {
 	RunID              uuid.UUID  `json:"-"`
 	Timestamp          time.Time  `json:"timestamp"`

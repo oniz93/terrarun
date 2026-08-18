@@ -88,6 +88,8 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 		return nil, ErrRunNotActive
 	}
 
+	// Resolve the runner's faction from the users table; the run row itself
+	// has no faction column, so the capture engine must be told explicitly.
 	runner, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get runner: %w", err)
@@ -102,13 +104,6 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 	if cheatResult == CheatClean {
 		for i := range req.GPSPoints {
 			req.GPSPoints[i].RunID = runID
-		}
-
-		// Resolve the runner's faction from the users table; the run row itself
-		// has no faction column, so the capture engine must be told explicitly.
-		runner, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("get runner: %w", err)
 		}
 
 		if runner.Faction != nil {

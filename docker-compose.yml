@@ -58,6 +58,7 @@ services:
       APPLE_TEAM_ID: ""
       APPLE_KEY_ID: ""
       APPLE_PRIVATE_KEY: ""
+      APPLE_CLIENT_ID: ""
       MAPBOX_TOKEN: "${MAPBOX_TOKEN:-}"
     depends_on:
       postgres:

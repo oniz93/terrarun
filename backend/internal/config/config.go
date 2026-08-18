@@ -35,6 +35,7 @@ type Config struct {
 	AppleTeamID      string `envconfig:"APPLE_TEAM_ID" required:"true"`
 	AppleKeyID       string `envconfig:"APPLE_KEY_ID" required:"true"`
 	ApplePrivateKey  string `envconfig:"APPLE_PRIVATE_KEY" required:"true"`
+	AppleClientID    string `envconfig:"APPLE_CLIENT_ID"`
 
 	MapboxToken string `envconfig:"MAPBOX_TOKEN"`
 

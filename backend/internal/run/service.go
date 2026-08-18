@@ -183,14 +183,28 @@ func (s *Service) EndRun(ctx context.Context, userID uuid.UUID, runID uuid.UUID,
 }
 
 func (s *Service) GetRun(ctx context.Context, userID, runID uuid.UUID) (*domain.Run, error) {
-	return s.repo.GetByID(ctx, runID)
+	run, err := s.repo.GetByID(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.UserID != userID {
+		return nil, ErrNotOwner
+	}
+	return run, nil
 }
 
 func (s *Service) ListRuns(ctx context.Context, userID uuid.UUID, page, perPage int) ([]domain.Run, int, error) {
 	return s.repo.GetByUser(ctx, userID, page, perPage)
 }
 
-func (s *Service) GetGPSPoints(ctx context.Context, runID uuid.UUID) ([]domain.GPSPoint, error) {
+func (s *Service) GetGPSPoints(ctx context.Context, userID, runID uuid.UUID) ([]domain.GPSPoint, error) {
+	run, err := s.repo.GetByID(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.UserID != userID {
+		return nil, ErrNotOwner
+	}
 	return s.repo.GetGPSPoints(ctx, runID)
 }
 

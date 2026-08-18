@@ -82,6 +82,10 @@ func (h *Handler) GetRun(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromContext(r.Context())
 	run, err := h.svc.GetRun(r.Context(), userID, runID)
 	if err != nil {
+		if errors.Is(err, ErrNotOwner) {
+			respondError(w, http.StatusForbidden, "not your run")
+			return
+		}
 		respondError(w, http.StatusNotFound, "run not found")
 		return
 	}
@@ -117,8 +121,13 @@ func (h *Handler) GetGPSPoints(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid run id")
 		return
 	}
-	points, err := h.svc.GetGPSPoints(r.Context(), runID)
+	userID := middleware.UserIDFromContext(r.Context())
+	points, err := h.svc.GetGPSPoints(r.Context(), userID, runID)
 	if err != nil {
+		if errors.Is(err, ErrNotOwner) {
+			respondError(w, http.StatusForbidden, "not your run")
+			return
+		}
 		respondError(w, http.StatusNotFound, "gps points not found")
 		return
 	}

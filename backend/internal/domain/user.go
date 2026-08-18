@@ -39,6 +39,18 @@ type User struct {
 	DeletedAt    *time.Time `json:"-"`
 }
 
+// PublicUser is the sanitized representation returned by public profile
+// endpoints. It deliberately excludes email, phone hash, and OAuth ids.
+type PublicUser struct {
+	ID           uuid.UUID  `json:"id"`
+	DisplayName  string     `json:"display_name"`
+	Faction      *Faction   `json:"faction,omitempty"`
+	AvatarURL    *string    `json:"avatar_url,omitempty"`
+	AccountLevel int        `json:"account_level"`
+	RunnerTier   RunnerTier `json:"runner_tier"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
 type Session struct {
 	ID           uuid.UUID  `json:"id"`
 	UserID       uuid.UUID  `json:"user_id"`
